@@ -3,7 +3,7 @@ import Phaser from "phaser";
 // To replace ships with real images:
 // 1. Place your image files in public/ folder (e.g., public/player-ship.png)
 // 2. Comment out the ship entries below
-// 3. Load them in preload() with this.load.image('ship-player', '/player-ship.png')
+// 3. Load them in preload() with this.load.image('ship-player', asset('player-ship.png'))
 
 const PLACEHOLDER_DEF = [
     // { key: "ship-player", width: 36, height: 20, color: 0x4ac8ff },
@@ -37,12 +37,15 @@ export default class PreloadScene extends Phaser.Scene {
             })
             .setOrigin(0.5, 0.5);
 
-        this.load.image("ship-player", "/ship-player.png");
-        this.load.image("ship-enemy", "/ship-enemy.png");
-        this.load.image("planet-lush", "/planet-lush.png");
-        this.load.image("derelict", "/derelict.png");
-        this.load.image("resource-node", "/resource.png");
-        this.load.image("party-leader", "/leader.png");
+        const asset = (filename) => `${import.meta.env.BASE_URL}${filename}`;
+
+        this.load.image("ship-player", asset("ship-player.png"));
+        this.load.image("ship-enemy", asset("ship-enemy.png"));
+        this.load.image("planet-lush", asset("planet-lush.png"));
+        this.load.image("derelict", asset("derelict.png"));
+        this.load.image("resource-node", asset("resource.png"));
+        this.load.image("party-leader", asset("leader.png"));
+
         this.generatePlaceholderTextures();
 
         this.registry.set("assetsReady", true);
