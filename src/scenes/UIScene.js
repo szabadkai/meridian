@@ -13,6 +13,10 @@ export default class UIScene extends Phaser.Scene {
     this.listeners = [];
     this.stateSubscriptions = [];
     this.activeSceneId = 'space';
+    this.onboardingOverlay = null;
+    this.onboardingVisible = false;
+    this.onboardingSections = {};
+    this.onboardingContext = 'space';
   }
 
   create() {
@@ -68,6 +72,8 @@ export default class UIScene extends Phaser.Scene {
     this.minimapOrigin = { x: this.scale.width - 220, y: 20 };
     this.minimapSize = 180;
     this.minimapGraphics = this.add.graphics();
+
+    this.createOnboardingOverlay();
   }
 
   bindEvents() {
@@ -86,6 +92,22 @@ export default class UIScene extends Phaser.Scene {
     this.addGlobalListener('ui:space-status', (payload) => this.updateMinimap(payload));
     this.addGlobalListener('ui:hint', ({ text }) => {
       this.showToast({ text, severity: 'info', duration: 1400 });
+    });
+    this.addGlobalListener('ui:onboarding', (payload = {}) => {
+      const { toggle, visible, context } = payload;
+      if (typeof context === 'string') {
+        this.onboardingContext = context;
+        if (this.onboardingVisible) {
+          this.highlightOnboardingSection(context);
+        }
+      }
+      if (toggle) {
+        this.setOnboardingVisible(!this.onboardingVisible, context ?? this.onboardingContext);
+        return;
+      }
+      if (typeof visible === 'boolean') {
+        this.setOnboardingVisible(visible, context ?? this.onboardingContext);
+      }
     });
 
     this.stateSubscriptions.push(
@@ -235,5 +257,124 @@ export default class UIScene extends Phaser.Scene {
     this.stateSubscriptions.forEach((unsubscribe) => unsubscribe?.());
     this.listeners = [];
     this.stateSubscriptions = [];
+  }
+
+  createOnboardingOverlay() {
+    const { width, height } = this.scale;
+    const panelWidth = Math.min(780, width - 80);
+    const panelHeight = Math.min(460, height - 120);
+
+    const overlay = this.add.container(0, 0).setDepth(50).setVisible(false);
+    this.onboardingOverlay = overlay;
+
+    const backdrop = this.add
+      .rectangle(0, 0, width, height, 0x060b13, 0.82)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    const panel = this.add
+      .rectangle(width / 2, height / 2, panelWidth, panelHeight, 0x0f1c2c, 0.95)
+      .setStrokeStyle(2, 0x4aa3ff, 0.6);
+
+    const heading = this.add.text(width / 2, panel.y - panelHeight / 2 + 40, 'MERIDIAN DEMO — BRIEFING', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#e6f4ff'
+    }).setOrigin(0.5);
+
+    const sections = [
+      {
+        id: 'aim',
+        title: 'Mission Objective',
+        text:
+          'Scout the sector, harvest a mineral cache planetside, then repel the enemy squad during the ground skirmish.'
+      },
+      {
+        id: 'space',
+        title: 'Flight Controls',
+        text:
+          'W thrust, S brake, A/D turn. Hold RMB to strafe with A/D. Shift boosts (drains fuel). E interact, R scan points of interest.'
+      },
+      {
+        id: 'planet',
+        title: 'Planet Surface',
+        text:
+          'WASD move, Shift sprint. Followers trail you. E interacts with landing zone or mineral node. Watch for the glowing threat ring.'
+      },
+      {
+        id: 'battle',
+        title: 'Ground Combat',
+        text:
+          'Left click select + move within blue tiles, right click to inspect. Number keys trigger abilities, Space ends turn. Use cover for defense.'
+      }
+    ];
+
+    const bodyStyle = {
+      fontFamily: 'monospace',
+      fontSize: '17px',
+      color: '#c7e4ff',
+      wordWrap: { width: panelWidth - 80 },
+      lineSpacing: 6
+    };
+
+    const titleStyle = {
+      fontFamily: 'monospace',
+      fontSize: '19px',
+      color: '#8fcaff'
+    };
+
+    const startY = heading.y + 36;
+    const sectionSpacing = 88;
+    this.onboardingSections = {};
+
+    sections.forEach((section, index) => {
+      const y = startY + index * sectionSpacing;
+      const title = this.add.text(panel.x - panelWidth / 2 + 40, y, section.title.toUpperCase(), titleStyle);
+      const body = this.add.text(title.x, y + 22, section.text, bodyStyle);
+      this.onboardingSections[section.id] = { title, body };
+    });
+
+    const footer = this.add.text(
+      panel.x,
+      panel.y + panelHeight / 2 - 36,
+      'Press H to toggle this guide at any time',
+      {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#9bd5ff'
+      }
+    ).setOrigin(0.5);
+
+    backdrop.on('pointerdown', () => this.setOnboardingVisible(false));
+    panel.setInteractive();
+    panel.on('pointerdown', (pointer) => pointer.event.stopPropagation());
+
+    overlay.add([backdrop, panel, heading, ...Object.values(this.onboardingSections).flatMap((entry) => [entry.title, entry.body]), footer]);
+  }
+
+  setOnboardingVisible(visible, context = this.onboardingContext) {
+    this.onboardingVisible = visible;
+    this.onboardingContext = context;
+    this.onboardingOverlay?.setVisible(visible);
+    if (visible) {
+      this.highlightOnboardingSection(context);
+    }
+  }
+
+  highlightOnboardingSection(context) {
+    const highlightColor = '#f3fbff';
+    const highlightAccent = '#e1f3ff';
+    const dimColor = '#8fb8d6';
+    const dimAccent = '#6f8faa';
+    Object.entries(this.onboardingSections).forEach(([id, entry]) => {
+      const isActive = id === context || (context === 'space' && id === 'aim');
+      entry.title.setColor(isActive ? highlightColor : dimAccent);
+      entry.body.setColor(isActive ? highlightAccent : dimColor);
+    });
+    // Ensure mission objective stays bright when context is aim or unspecified
+    if (context !== 'aim' && this.onboardingSections.aim) {
+      this.onboardingSections.aim.title.setColor('#e6f4ff');
+      this.onboardingSections.aim.body.setColor('#c7e4ff');
+    }
   }
 }

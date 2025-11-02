@@ -18,6 +18,7 @@ function createDefaultState() {
       scrap: 0
     },
     tutorials: {
+      onboarding: false,
       spaceMovement: false,
       planetMovement: false,
       battleControls: false

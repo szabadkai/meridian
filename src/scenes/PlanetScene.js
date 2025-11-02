@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 import InputManager from '../systems/input.js';
 import { getState, changeScene, addResource, markTutorialSeen } from '../systems/state.js';
 import { PlanetEncounterConfig } from '../systems/content.js';
+import {
+  ensurePlanetTileset,
+  generatePlanetTilemapData,
+  TILESET_NAME
+} from '../systems/planetTiles.js';
 import { SPRITE_SIZES } from './SpaceScene.js';
 
 const TILE_SIZE = 32;
@@ -50,6 +55,9 @@ export default class PlanetScene extends Phaser.Scene {
   }
 
   update() {
+    if (this.inputManager.justPressed('help')) {
+      this.game.events.emit('ui:onboarding', { toggle: true, context: 'planet' });
+    }
     this.handleMovement();
     this.updateFollowers();
     this.checkLandingInteraction();
@@ -64,8 +72,25 @@ export default class PlanetScene extends Phaser.Scene {
   }
 
   createGround() {
-    this.groundTiles = this.add.tileSprite(MAP_SIZE / 2, MAP_SIZE / 2, MAP_SIZE, MAP_SIZE, 'tile-ground');
-    this.groundTiles.setTileScale(4, 4);
+    const { key: tilesetKey, width: tileWidth, height: tileHeight } = ensurePlanetTileset(this);
+    this.tilemap = this.make.tilemap({
+      tileWidth,
+      tileHeight,
+      width: MAP_TILES,
+      height: MAP_TILES
+    });
+    const tileset = this.tilemap.addTilesetImage(TILESET_NAME, tilesetKey, tileWidth, tileHeight);
+    this.groundLayer = this.tilemap.createBlankLayer('Ground', tileset, 0, 0);
+
+    const displayScale = TILE_SIZE / tileWidth;
+    this.groundLayer.setOrigin(0, 0).setScale(displayScale).setDepth(1);
+
+    const { data } = generatePlanetTilemapData({ seed: this.transitionData.planetId });
+    data.forEach((row, y) => {
+      row.forEach((tileIndex, x) => {
+        this.groundLayer.putTileAt(tileIndex, x, y);
+      });
+    });
   }
 
   createObstacles() {
@@ -161,8 +186,23 @@ export default class PlanetScene extends Phaser.Scene {
       encounterTrigger.radius * TILE_SIZE
     );
     this.debugEncounter = this.add.graphics();
-    this.debugEncounter.lineStyle(2, 0xff7a7a, 0.4);
+    this.debugEncounter.setDepth(2);
+    this.debugEncounter.lineStyle(3, 0xff4d4d, 0.65);
     this.debugEncounter.strokeCircleShape(this.encounterZone);
+    this.debugEncounter.lineStyle(1, 0xff4d4d, 0.2);
+    this.debugEncounter.strokeCircle(
+      this.encounterZone.x,
+      this.encounterZone.y,
+      this.encounterZone.radius * 0.7
+    );
+    this.encounterPulse = this.tweens.add({
+      targets: this.debugEncounter,
+      alpha: { from: 0.9, to: 0.3 },
+      ease: 'Sine.easeInOut',
+      duration: 900,
+      yoyo: true,
+      repeat: -1
+    });
   }
 
   setupInput() {
@@ -171,6 +211,7 @@ export default class PlanetScene extends Phaser.Scene {
 
   bindEvents() {
     this.game.events.emit('ui:scene', { id: 'planet' });
+    this.game.events.emit('ui:onboarding', { context: 'planet' });
   }
 
   presentTutorial() {
@@ -281,6 +322,10 @@ export default class PlanetScene extends Phaser.Scene {
 
   destroy() {
     this.inputManager?.destroy();
+    this.tilemap?.destroy();
+    this.groundLayer?.destroy();
+    this.encounterPulse?.stop();
+    this.debugEncounter?.destroy();
   }
 
   setPrompt(message) {

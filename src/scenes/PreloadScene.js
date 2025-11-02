@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { PlanetEncounterConfig } from "../systems/content.js";
 
 // To replace ships with real images:
 // 1. Place your image files in public/ folder (e.g., public/player-ship.png)
@@ -9,19 +10,19 @@ const PLACEHOLDER_DEF = [
     // { key: "ship-player", width: 36, height: 20, color: 0x4ac8ff },
     // { key: "ship-enemy", width: 32, height: 18, color: 0xff6b6b },
     // { key: "planet-lush", radius: 32, gradient: [0x44ffaa, 0x146b5d] },
-    { key: "planet-ice", radius: 32, gradient: [0xa4d8ff, 0x4c7bb8] },
+    // { key: "planet-ice", radius: 32, gradient: [0xa4d8ff, 0x4c7bb8] },
     { key: "orbit-ring", radius: 48, stroke: 0xffffff },
     // { key: "derelict", width: 24, height: 24, color: 0xd8d0ff },
     // { key: "resource-node", width: 18, height: 18, color: 0x94f65c },
-    { key: "landing-zone", width: 36, height: 36, color: 0xfff26d, alpha: 0.4 },
+    // { key: "landing-zone", width: 36, height: 36, color: 0xfff26d, alpha: 0.4 },
     // { key: "party-leader", width: 18, height: 24, color: 0x52b7ff },
-    { key: "party-companion", width: 18, height: 24, color: 0x5fe1d0 },
-    { key: "enemy-raider", width: 18, height: 24, color: 0xff7a7a },
-    { key: "enemy-marksman", width: 18, height: 24, color: 0xffaf5f },
-    { key: "tile-ground", width: 16, height: 16, color: 0x23304a },
-    { key: "tile-path", width: 16, height: 16, color: 0x2d3f5c },
-    { key: "tile-cover-low", width: 16, height: 16, color: 0x4a735c },
-    { key: "tile-cover-high", width: 16, height: 16, color: 0x315943 },
+    // { key: "party-companion", width: 18, height: 24, color: 0x5fe1d0 },
+    // { key: "enemy-raider", width: 18, height: 24, color: 0xff7a7a },
+    // { key: "enemy-marksman", width: 18, height: 24, color: 0xffaf5f },
+    // { key: "tile-ground", width: 16, height: 16, color: 0x23304a },
+    // { key: "tile-path", width: 16, height: 16, color: 0x2d3f5c },
+    // { key: "tile-cover-low", width: 16, height: 16, color: 0x4a735c },
+    // { key: "tile-cover-high", width: 16, height: 16, color: 0x315943 },
 ];
 
 export default class PreloadScene extends Phaser.Scene {
@@ -42,9 +43,18 @@ export default class PreloadScene extends Phaser.Scene {
         this.load.image("ship-player", asset("ship-player.png"));
         this.load.image("ship-enemy", asset("ship-enemy.png"));
         this.load.image("planet-lush", asset("planet-lush.png"));
+        this.load.image("planet-ice", asset("planet-ice.png"));
         this.load.image("derelict", asset("derelict.png"));
         this.load.image("resource-node", asset("resource.png"));
         this.load.image("party-leader", asset("leader.png"));
+        this.load.image("landing-zone", asset("landing-zone.png"));
+        this.load.image("party-companion", asset("companion.png"));
+        this.load.image("enemy-raider", asset("enemy-raider.png"));
+        this.load.image("enemy-marksman", asset("enemy-marksman.png"));
+        this.load.spritesheet("planet-tilesheet", asset("basic.png"), {
+            frameWidth: PlanetEncounterConfig.tileSize,
+            frameHeight: PlanetEncounterConfig.tileSize,
+        });
 
         this.generatePlaceholderTextures();
 
@@ -52,8 +62,52 @@ export default class PreloadScene extends Phaser.Scene {
     }
 
     create() {
+        this.createPlanetTileTextures();
         this.scene.start("SpaceScene");
         this.scene.launch("UIScene");
+    }
+
+    createPlanetTileTextures() {
+        const sheet = this.textures.get("planet-tilesheet");
+        if (!sheet) {
+            return;
+        }
+
+        const mapping = [
+            { key: "tile-ground", frame: 4 },
+            { key: "tile-path", frame: 108 },
+            { key: "tile-cover-low", frame: 1 },
+            { key: "tile-cover-high", frame: 29 },
+        ];
+
+        mapping.forEach(({ key, frame }) => {
+            const tileFrame = sheet.get(`${frame}`);
+            const source = tileFrame
+                ? sheet.getSourceImage(tileFrame.sourceIndex)
+                : null;
+            if (!tileFrame || !source) {
+                return;
+            }
+            this.textures.remove(key);
+            const canvas = this.textures.createCanvas(
+                key,
+                tileFrame.width,
+                tileFrame.height
+            );
+            canvas.context.imageSmoothingEnabled = false;
+            canvas.context.drawImage(
+                source,
+                tileFrame.cutX,
+                tileFrame.cutY,
+                tileFrame.cutWidth,
+                tileFrame.cutHeight,
+                0,
+                0,
+                tileFrame.cutWidth,
+                tileFrame.cutHeight
+            );
+            canvas.refresh();
+        });
     }
 
     generatePlaceholderTextures() {
@@ -115,10 +169,11 @@ export default class PreloadScene extends Phaser.Scene {
     }
 
     createStarfieldTextures() {
+        // Lower star counts to make the parallax field feel less busy.
         const layers = [
-            { key: "starfield-close", count: 120, size: 3, alpha: 0.9 },
-            { key: "starfield-mid", count: 80, size: 2, alpha: 0.6 },
-            { key: "starfield-far", count: 50, size: 1, alpha: 0.4 },
+            { key: "starfield-close", count: 40, size: 3, alpha: 0.9 },
+            { key: "starfield-mid", count: 25, size: 2, alpha: 0.6 },
+            { key: "starfield-far", count: 10, size: 1, alpha: 0.4 },
         ];
 
         layers.forEach((layer) => {
@@ -156,31 +211,66 @@ export default class PreloadScene extends Phaser.Scene {
 
         // Create thrust flame texture
         const flameWidth = 16;
-        const flameHeight = 20;
+        const flameHeight = 32;
 
-        // Gradient from bright yellow/white to orange/red
-        g.fillStyle(0xffff99, 1.0);
+        // Tight core anchored right at the nozzle
+        g.fillStyle(0xffffd4, 1.0);
         g.fillEllipse(
             flameWidth / 2,
-            flameHeight * 0.3,
-            flameWidth * 0.6,
-            flameHeight * 0.4
+            flameHeight * 0.08,
+            flameWidth * 0.18,
+            flameHeight * 0.18
         );
 
-        g.fillStyle(0xffaa33, 0.9);
+        g.fillStyle(0xffc342, 0.95);
         g.fillEllipse(
             flameWidth / 2,
-            flameHeight * 0.5,
-            flameWidth * 0.7,
-            flameHeight * 0.5
+            flameHeight * 0.22,
+            flameWidth * 0.38,
+            flameHeight * 0.32
         );
 
-        g.fillStyle(0xff6633, 0.7);
+        g.fillStyle(0xff7f2a, 0.85);
         g.fillEllipse(
             flameWidth / 2,
-            flameHeight * 0.75,
-            flameWidth * 0.8,
-            flameHeight * 0.6
+            flameHeight * 0.42,
+            flameWidth * 0.55,
+            flameHeight * 0.45
+        );
+
+        // Violent plume flaring backward
+        g.fillStyle(0xff4712, 0.82);
+        g.fillTriangle(
+            flameWidth / 2,
+            flameHeight,
+            flameWidth * 0.1,
+            flameHeight * 0.55,
+            flameWidth * 0.9,
+            flameHeight * 0.55
+        );
+        g.fillStyle(0xffa34d, 0.65);
+        g.fillTriangle(
+            flameWidth / 2,
+            flameHeight * 0.62,
+            flameWidth * 0.25,
+            flameHeight * 0.38,
+            flameWidth * 0.75,
+            flameHeight * 0.38
+        );
+
+        // Side flickers suggest instability
+        g.fillStyle(0xff9442, 0.5);
+        g.fillEllipse(
+            flameWidth / 2 - 3,
+            flameHeight * 0.48,
+            flameWidth * 0.24,
+            flameHeight * 0.32
+        );
+        g.fillEllipse(
+            flameWidth / 2 + 3,
+            flameHeight * 0.48,
+            flameWidth * 0.24,
+            flameHeight * 0.32
         );
 
         g.generateTexture("thrust-flame", flameWidth, flameHeight);

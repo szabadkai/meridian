@@ -95,7 +95,7 @@ export default class SpaceScene extends Phaser.Scene {
 
         // Tweaker state
         this.params = { ...DEFAULT_PARAMS };
-        this.tweakerVisible = true;
+        this.tweakerVisible = false;
         this.tweakerUI = null;
     }
 
@@ -116,12 +116,19 @@ export default class SpaceScene extends Phaser.Scene {
 
         this.refreshUI();
         this.presentTutorial();
+        this.showOnboardingIfNeeded();
 
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
     }
 
     update(time, delta) {
         const dt = delta / 1000;
+        if (this.inputManager.justPressed("help")) {
+            this.game.events.emit("ui:onboarding", {
+                toggle: true,
+                context: "space",
+            });
+        }
         this.starfieldFar.tilePositionX = this.cameras.main.scrollX * 0.2;
         this.starfieldFar.tilePositionY = this.cameras.main.scrollY * 0.2;
         this.starfieldMid.tilePositionX = this.cameras.main.scrollX * 0.4;
@@ -339,6 +346,7 @@ export default class SpaceScene extends Phaser.Scene {
 
     setupEvents() {
         this.game.events.emit("ui:scene", { id: "space" });
+        this.game.events.emit("ui:onboarding", { context: "space" });
 
         this.time.delayedCall(2600, () => {
             this.game.events.emit("ui:hint", {
@@ -364,6 +372,18 @@ export default class SpaceScene extends Phaser.Scene {
             this.setPrompt(
                 "W thrust, S brake, A/D turn. RMB to aim. E interact."
             );
+        }
+    }
+
+    showOnboardingIfNeeded() {
+        if (!this.state.tutorials.onboarding) {
+            this.game.events.emit("ui:onboarding", {
+                visible: true,
+                context: "space",
+            });
+            markTutorialSeen("onboarding");
+        } else {
+            this.game.events.emit("ui:onboarding", { context: "space" });
         }
     }
 
@@ -597,7 +617,7 @@ export default class SpaceScene extends Phaser.Scene {
             this.thrustFlame.setVisible(true);
 
             // Position at rear of ship (opposite to facing direction)
-            const shipRearDistance = 20; // Distance behind ship center
+            const shipRearDistance = this.ship.displayHeight * 1.2; // Distance behind ship center scales with sprite size
             const rearX =
                 this.ship.x - Math.cos(this.shipRotation) * shipRearDistance;
             const rearY =
@@ -1015,7 +1035,7 @@ export default class SpaceScene extends Phaser.Scene {
                 font-family: monospace;
                 font-size: 11px;
                 width: 280px;
-                display: block;
+                display: none;
                 z-index: 10000;
                 border: 1px solid #4a90e2;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.5);

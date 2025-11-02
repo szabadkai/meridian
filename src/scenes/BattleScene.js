@@ -18,6 +18,7 @@ import {
 } from '../systems/combat.js';
 import { bfsRange, aStar } from '../systems/pathfinding.js';
 import { PlayerSquadConfig, EnemySquadConfig, BattleBoardConfig } from '../systems/content.js';
+import { SPRITE_SIZES } from './SpaceScene.js';
 
 const CELL_SIZE = 96;
 const BOARD_COLS = BattleBoardConfig.width;
@@ -70,6 +71,9 @@ export default class BattleScene extends Phaser.Scene {
   }
 
   update() {
+    if (this.inputManager.justPressed('help')) {
+      this.game.events.emit('ui:onboarding', { toggle: true, context: 'battle' });
+    }
     this.handleAbilityInputs();
     this.handleEndTurnInput();
   }
@@ -150,6 +154,7 @@ export default class BattleScene extends Phaser.Scene {
 
   bindEvents() {
     this.game.events.emit('ui:scene', { id: 'battle' });
+    this.game.events.emit('ui:onboarding', { context: 'battle' });
     this.infoText = this.add.text(40, 24, '', {
       fontFamily: 'monospace',
       fontSize: '20px',
@@ -635,6 +640,34 @@ export default class BattleScene extends Phaser.Scene {
     const { px, py } = this.gridToWorld(unit.position.x, unit.position.y);
     const sprite = this.add.sprite(px, py, texture);
     sprite.setDepth(4);
+
+    const scaleForTarget = (targetWidth, targetHeight) => {
+      const width = targetWidth * 2; // Double the overworld sizing for battle readability.
+      const height = targetHeight * 2;
+      return Math.min(width / sprite.width, height / sprite.height);
+    };
+
+    if (unit.team === 'player') {
+      sprite.setScale(
+        scaleForTarget(
+          SPRITE_SIZES.PARTY_LEADER_WIDTH,
+          SPRITE_SIZES.PARTY_LEADER_HEIGHT
+        )
+      );
+    } else if (unit.team === 'enemy') {
+      const isMarksman = texture === 'enemy-marksman';
+      sprite.setScale(
+        scaleForTarget(
+          isMarksman
+            ? SPRITE_SIZES.ENEMY_MARKSMAN_WIDTH
+            : SPRITE_SIZES.ENEMY_RAIDER_WIDTH,
+          isMarksman
+            ? SPRITE_SIZES.ENEMY_MARKSMAN_HEIGHT
+            : SPRITE_SIZES.ENEMY_RAIDER_HEIGHT
+        )
+      );
+    }
+
     if (unit.team === 'enemy') {
       sprite.setTint(0xff8585);
     } else {

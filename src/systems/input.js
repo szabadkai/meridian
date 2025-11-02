@@ -8,6 +8,7 @@ const defaultKeys = {
   sprint: Phaser.Input.Keyboard.KeyCodes.SHIFT,
   interact: Phaser.Input.Keyboard.KeyCodes.E,
   scan: Phaser.Input.Keyboard.KeyCodes.R,
+  help: Phaser.Input.Keyboard.KeyCodes.H,
   confirm: Phaser.Input.Keyboard.KeyCodes.ENTER,
   cancel: Phaser.Input.Keyboard.KeyCodes.ESC,
   endTurn: Phaser.Input.Keyboard.KeyCodes.SPACE,
